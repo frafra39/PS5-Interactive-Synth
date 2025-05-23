@@ -195,6 +195,20 @@ while True:
     updated = updated or sent1 
 
 
+    # 8.1.4 Modalità Mono/Poly
+    if joystick.get_button(BUTTON_CIRCLE):
+        client.send_message("/controller/monoMode", 1)
+        #client.send_message("/controller/polyMode", 0)
+        print("🎚️ Modalità Mono selezionata")
+        #time.sleep(0.2)  # debounce
+
+    elif joystick.get_button(BUTTON_SQUARE):
+        #client.send_message("/controller/monoMode", 0)
+        client.send_message("/controller/polyMode", 1)
+        print("🎚️ Modalità Poly selezionata")
+        #time.sleep(0.2)  # debounce
+
+
     # 8.2 AXIS
 
     # 8.2.1 LFO Frequency (R2 - L2)
@@ -209,6 +223,9 @@ while True:
     # 8.2.2 Riverbero (Stick sinistro Y)
     ly_raw = joystick.get_axis(AXIS_LEFT_STICK_Y)
 
+    # 1) per la GUI: mando raw fra –1 e +1 per sapere direzione e intensità
+    client.send_message("/controller/sendLevel1Raw", ly_raw)
+
     # Livello riverbero (massimo a ±1, minimo a 0)
     sendLevel1 = abs(ly_raw)
     sent1, last_sendLevel1 = send_if_changed("/controller/sendLevel1", sendLevel1, last_sendLevel1)
@@ -221,23 +238,53 @@ while True:
     updated = updated or sent1 or sent2
 
 
-    # 8.2.3 Delay (Stick sinistro X) 
-    lx = abs(joystick.get_axis(AXIS_LEFT_STICK_X))
-    sent, last_sendLevel2 = send_if_changed("/controller/sendLevel2", lx, last_sendLevel2)
-    updated = updated or sent
+    # 8.2.3 Delay (Stick sinistro X)
+    lx_raw = joystick.get_axis(AXIS_LEFT_STICK_X)
+
+    client.send_message("/controller/sendLevel2Raw", lx_raw)
+
+    # Livello delay (massimo a ±1, minimo a 0)
+    sendLevel2 = abs(lx_raw)
+    sent3, last_sendLevel2 = send_if_changed("/controller/sendLevel2", sendLevel2, last_sendLevel2)
+
+    # Delay Feedback: 0.5 al centro, sale a 1.0 con lx = +1, scende a 0.0 con lx = -1
+    delayFeedback = 0.5 + (lx_raw * 0.5)
+    delayFeedback = max(0, min(1, delayFeedback))  # clip tra 0 e 1
+    sent4, _ = send_if_changed("/controller/de_feedback", delayFeedback, None)
+
+    updated = updated or sent3 or sent4
+
+
 
     # 8.2.4 Flanger (Stick destro Y)
-    ry = abs(joystick.get_axis(AXIS_RIGHT_STICK_Y))
-    sent, last_sendLevel3 = send_if_changed("/controller/sendLevel3", ry, last_sendLevel3)
+    ry_raw = joystick.get_axis(AXIS_RIGHT_STICK_Y)
+    
+    client.send_message("/controller/sendLevel3Raw", ry_raw)
+
+    sendLevel3 = abs(ry_raw)
+    sent, last_sendLevel3 = send_if_changed("/controller/sendLevel3", sendLevel3, last_sendLevel3)
     updated = updated or sent
 
-    # 8.2.5 Delay (Stick destro X) 
-    rx = abs(joystick.get_axis(AXIS_RIGHT_STICK_X))
-    sent, last_sendLevel4 = send_if_changed("/controller/sendLevel4", rx, last_sendLevel4)
-    updated = updated or sent
+
+
+    # 8.2.5 Distortion (Stick destro X) 
+    rx_raw = joystick.get_axis(AXIS_RIGHT_STICK_X)
+
+    client.send_message("/controller/sendLevel4Raw", rx_raw)
+
+    # Livello distorsione (massimo a ±1, minimo a 0)
+    sendLevel4 = abs(rx_raw)
+    sent7, last_sendLevel4 = send_if_changed("/controller/sendLevel4", sendLevel4, last_sendLevel4)
+    
+    # Distortion Tone: 0.5 al centro, sale a 1.0 con rx = +1, scende a 0.0 con rx = -1
+    distortionTone = 0.5 + (rx_raw * 0.5)
+    distortionTone = max(0, min(1, distortionTone))  # clip tra 0 e 1
+    sent8, _ = send_if_changed("/controller/di_tone", distortionTone, None)
+
+    updated = updated or sent7 or sent8
 
     if updated:
-        print(f"LFO: {lfoFreq:.2f}, lfoDepth: {lfoDepth:.2f}, Cutoff: {cutoff:.2f}, Reverb Send: {sendLevel1:.2f}, Room Size: {roomSize:.2f}, Delay: {lx:.2f}, Flanger: {ry:.2f}, Distortion: {rx:.2f}")
+        print(f"LFO: {lfoFreq:.2f}, lfoDepth: {lfoDepth:.2f}, Cutoff: {cutoff:.2f}, Reverb Send: {sendLevel1:.2f}, Room Size: {roomSize:.2f}, Delay: {sendLevel2:.2f}, DelayFeedback: {delayFeedback:.2f},Flanger: {sendLevel3:.2f}, Distortion: {sendLevel4:.2f}, DistortionTone: {distortionTone:.2f},")
 
     time.sleep(0.05)
 
