@@ -30,6 +30,8 @@ int cutoff_dir = 0;  // -1 sinistra, +1 destra
 int glide_dir = 0;   // -1 giù, +1 su
 int lastCutoffPressTime = 0;
 int lastGlidePressTime = 0;
+float glideMin = 0.5;
+float glideMax = 2.0;
 
   // Posizione dei due joystick
 PVector dpadCenter = new PVector(120, 200);         
@@ -213,6 +215,8 @@ ellipse(rightPadCenter.x + rightPadX*padRadius,
   // LOGICA DI AGGIORNAMENTO PARAMETRI DA TASTI FRECCIA (GUI o Controller)
   //float cutoffStep = 0.3;
   //float glideStep = 0.05;
+  
+
 
 
   // === Reset automatico del colore delle frecce dopo 80ms
@@ -457,20 +461,40 @@ cp5.addTextlabel("labelWaveform" + (i + 1))
   }
   
 Slider glideSlider = cp5.addSlider("glide")
-    .setPosition(300, 350)
-    .setSize(300, 20)
+    .setPosition(475, 350)
+    .setSize(150, 20)
     .setRange(0.5, 2.0)
     .setValue(1.0)
     .setGroup(oscGroup)
-    .setLabel("Glide Factor")
+    .setLabel("")
     .setColorBackground(color(235, 215, 140))   // giallo sabbia
     .setColorForeground(color(180, 145, 60))    // ambra
     .setColorActive(color(180, 145, 60));
 
-glideSlider.getCaptionLabel()
-  .align(ControlP5.CENTER, ControlP5.BOTTOM_OUTSIDE)
-  .setPaddingY(-35)
-  .setColor(color(180, 145, 60));
+
+  
+    // Etichetta separata centrata sotto lo slider
+  cp5.addTextlabel("glideLabel")
+    .setText("GLIDE FACTOR")
+    .setPosition(470 + 75 - 40, 375)  // centrata: slider.x + slider.width/2 - offset visivo
+    .setGroup(oscGroup)
+    .setColorValue(color(180, 145, 60))
+    .setFont(createFont("Futura-Bold", 12));
+  
+    String[] glideRangeOptions = {"1 octave", "2 octaves", "3 octaves"};
+
+  cp5.addDropdownList("glideRange")
+    .setPosition(290, 330) // accanto allo slider glide
+    .setSize(120, 60)
+    .setItems(glideRangeOptions)
+    .setGroup(oscGroup)
+    .setLabel("Glide Range")
+    .setColorBackground(color(235, 215, 140))
+    .setColorForeground(color(180, 145, 60))
+    .setColorActive(color(180, 145, 60))
+    .setItemHeight(18)
+    .setBarHeight(18)
+    .setValue(0); // default: 1 octave
     
 // POLY a sinistra → spostato a destra
 cp5.addToggle("polyMode")
@@ -1119,10 +1143,33 @@ void controlEvent(ControlEvent e) {
     sendOSC("/controller/" + name, idx);
 
     // 4.2.7 Glide
+  //} else if (name.equals("glide")) {
+  //  sendOSC("/controller/glide", val);
+
+    
+    
+        // 4.2.7 Glide
   } else if (name.equals("glide")) {
     sendOSC("/controller/glide", val);
-  } else if (name.equals("glideTime")) {
-    sendOSC("/controller/glideTime", val);
+  } else if (name.equals("glideRange")) {
+  int selected = (int) val;
+  
+  // aggiorna i limiti in base alla selezione
+  if (selected == 0) { // 1 octave
+    glideMin = 0.5;
+    glideMax = 2.0;
+  } else if (selected == 1) { // 2 octaves
+    glideMin = 0.25;
+    glideMax = 4.0;
+  } else if (selected == 2) { // 3 octaves
+    glideMin = 0.125;
+    glideMax = 8.0;
+  }
+
+  // aggiorna dinamicamente i limiti dello slider
+  Slider glideSlider = cp5.get(Slider.class, "glide");
+  glideSlider.setRange(glideMin, glideMax);
+  sendOSC("/controller/glideRange", selected + 1);  // invia 1, 2 o 3
     
     // 4.2.8 POLY MONO
   } else if (name.equals("monoMode") && val == 1) {
